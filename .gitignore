@@ -1,0 +1,37 @@
+# Entornos virtuales
+.venv/
+env/
+venv/
+ENV/
+
+# Python cache y compilados
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Tests y cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Variables de entorno y secretos
+.env
+.env.local
+.env.*
+!.env.example
+
+# IDEs y editores
+.vscode/
+.idea/
+*.swp
+*~
+
+# Datos y descargas pesadas temporales (opcional)
+data/
+frontend/node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+*.tsbuildinfo

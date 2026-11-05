@@ -1,0 +1,4 @@
+interface:
+  display_name: "Awesome Design — Apple"
+  short_description: "Diseño Apple basado en Awesome DESIGN.md"
+  default_prompt: "Usa la referencia Apple de awesome-design para diseñar esta interfaz."
