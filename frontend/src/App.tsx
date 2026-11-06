@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   ArrowDownToLine,
@@ -10,6 +11,7 @@ import {
   ChevronRight,
   CircleHelp,
   FileSearch,
+  FilePlus2,
   LayoutDashboard,
   Moon,
   RefreshCw,
@@ -19,12 +21,14 @@ import {
   Users,
 } from "lucide-react";
 import { useDashboard, useContracts } from "./hooks/useDashboard";
+import { useAppRoute } from "./hooks/useAppRoute";
 import { DashboardError } from "./api/dashboard";
-import type { Episode } from "./api/schema";
+import type { Episode, TemporalBasis } from "./api/schema";
 import {
   currentRange,
   count,
   percent,
+  receivedAtBogota,
   shortDate,
   validRange,
 } from "./lib/format";
@@ -36,6 +40,7 @@ import EpisodesTable from "./components/EpisodesTable";
 import { PatientDrillDownModal } from "./components/PatientDrillDownModal";
 import ContractsPanel from "./components/ContractsPanel";
 import { PfgpSimulator } from "./components/PfgpSimulator";
+import ContractRegistration from "./components/ContractRegistration";
 
 const Charts = lazy(() => import("./components/Charts"));
 const detailNavigation = [
@@ -70,6 +75,10 @@ function Skeleton() {
 }
 
 export default function App() {
+  const route = useAppRoute();
+  const isRegistering = route === "new-contract";
+  const [hasOpenedRegistration, setHasOpenedRegistration] = useState(isRegistering);
+  const queryClient = useQueryClient();
   const [range, setRange] = useState(() => currentRange());
   const [draft, setDraft] = useState(range);
   const [dateError, setDateError] = useState("");
@@ -89,14 +98,18 @@ export default function App() {
   const [episode, setEpisode] = useState<Episode | null>(null);
   const [reviewToken, setReviewToken] = useState(0);
   const [exported, setExported] = useState(false);
-  const contractsQuery = useContracts(range);
-  const dashboardQuery = useDashboard(range, selectedId);
+  const [basis, setBasis] = useState<TemporalBasis>("dias30");
+  const contractsQuery = useContracts(range, !isRegistering);
+  const dashboardQuery = useDashboard(range, selectedId, !isRegistering);
   const query = selectedId === null ? contractsQuery : dashboardQuery;
   const data = selectedId === null ? undefined : dashboardQuery.data;
+  const reference = data?.referenciasTemporales[basis];
   const navigation = [
     { id: "contratos", name: "Contratos", icon: FileSearch },
-    ...(selectedId === null ? [] : detailNavigation),
+    { id: "nuevo-contrato", name: "Agregar contrato", icon: FilePlus2 },
+    ...(selectedId === null || isRegistering ? [] : detailNavigation),
   ];
+  const activeNavigation = isRegistering ? "nuevo-contrato" : active;
   const dirty = draft.inicio !== range.inicio || draft.final !== range.final;
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
@@ -111,6 +124,14 @@ export default function App() {
     setExported(false);
   }, [data, selectedId]);
   useEffect(() => {
+    if (!isRegistering) return;
+    setHasOpenedRegistration(true);
+    setEpisode(null);
+    setExported(false);
+    void queryClient.cancelQueries({ predicate: (item) => item.queryKey[0] === "pfgp-contracts" || item.queryKey[0] === "pfgp-dashboard" });
+  }, [isRegistering, queryClient]);
+  useEffect(() => {
+    if (isRegistering) return;
     const observer = new IntersectionObserver(
       (entries) => {
         for (const e of entries) if (e.isIntersecting) setActive(e.target.id);
@@ -122,7 +143,7 @@ export default function App() {
       if (element) observer.observe(element);
     });
     return () => observer.disconnect();
-  }, [data, selectedId, contractsQuery.data]);
+  }, [data, selectedId, contractsQuery.data, isRegistering]);
   function openContract(id: number) {
     setEpisode(null);
     setReviewToken(0);
@@ -134,6 +155,7 @@ export default function App() {
     setEpisode(null);
     setSelectedId(null);
     setActive("contratos");
+    if (isRegistering) window.location.hash = "contratos";
     window.scrollTo({ top: 0 });
   }
   function navigate(id: string) {
@@ -155,7 +177,10 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <a href="#main-content" className="skip-link">
+      <a href="#main-content" className="skip-link" onClick={(event) => {
+        event.preventDefault();
+        document.getElementById("main-content")?.focus();
+      }}>
         Saltar al contenido
       </a>
       <aside className="sidebar">
@@ -181,10 +206,11 @@ export default function App() {
             <a
               key={id}
               aria-label={name}
-              href={`#${id}`}
-              className={active === id ? "nav-item active" : "nav-item"}
-              aria-current={active === id ? "location" : undefined}
+              href={id === "nuevo-contrato" ? "#/contratos/nuevo" : `#${id}`}
+              className={activeNavigation === id ? "nav-item active" : "nav-item"}
+              aria-current={activeNavigation === id ? "page" : undefined}
               onClick={(e) => {
+                if (id === "nuevo-contrato") return;
                 e.preventDefault();
                 navigate(id);
               }}
@@ -201,10 +227,7 @@ export default function App() {
             <span>PFGP</span>
           </div>
           <p>Pago Fijo Global Prospectivo</p>
-          <div className="local-label">
-            <span />
-            Entorno local · Centro 99
-          </div>
+
         </div>
       </aside>
       <div className="workspace">
@@ -212,7 +235,7 @@ export default function App() {
           <div className="breadcrumb">
             <span>Contratos PFGP</span>
             <ChevronRight size={14} />
-            <strong>{navigation.find((n) => n.id === active)?.name}</strong>
+            <strong>{navigation.find((n) => n.id === activeNavigation)?.name}</strong>
           </div>
           <div className="topbar-tools">
             <span className="privacy-label">
@@ -228,7 +251,11 @@ export default function App() {
             </button>
           </div>
         </header>
-        <main id="main-content">
+        <main id="main-content" tabIndex={-1}>
+          {(isRegistering || hasOpenedRegistration) && (
+            <div hidden={!isRegistering}><ContractRegistration onReturn={backToContracts} /></div>
+          )}
+          {!isRegistering && <>
           {selectedId !== null && (
             <button
               className="text-button back-contracts"
@@ -265,7 +292,7 @@ export default function App() {
                   disabled={!data || query.isFetching || query.isError}
                   onClick={() => {
                     if (data) {
-                      exportSummary(data);
+                      exportSummary(data, basis);
                       setExported(true);
                     }
                   }}
@@ -330,12 +357,6 @@ export default function App() {
                     }
                   />
                 </label>
-                <div className="center-field">
-                  <span>Centro</span>
-                  <strong>
-                    99 <span className="center-status">Fijo</span>
-                  </strong>
-                </div>
                 <button type="submit" className="button primary">
                   <span>{dirty ? "Aplicar período" : "Consultar"}</span>
                   <ArrowRight size={16} />
@@ -348,8 +369,8 @@ export default function App() {
               )}
               {dirty && (
                 <p className="filter-notice">
-                  Hay fechas sin aplicar. El informe conserva el período
-                  consultado.
+                  Hay fechas sin aplicar. El informe y el simulador conservan
+                  el rango solicitado indicado junto a la recepción de la consulta.
                 </p>
               )}
             </div>
@@ -415,10 +436,7 @@ export default function App() {
                           "Contrato sin nombre reportado"}
                       </h2>
                       <p>
-                        {shortDate(data.metadata.fechaInicio)} —{" "}
-                        {shortDate(data.metadata.fechaFinal)}
-                        <span>·</span>
-                        {count(data.metadata.diasCorteAnalizados)} días de corte
+                        {count(data.metadata.diasCorteAnalizados)} días solicitados
                       </p>
                     </div>
                   </div>
@@ -426,31 +444,39 @@ export default function App() {
                     <div>
                       <span>Avance de referencia</span>
                       <strong>
-                        {percent(data.metadata.avanceTemporalMesPct)}
+                        {percent(reference?.avanceReferenciaPct ?? null)}
                       </strong>
                     </div>
                     <div
                       className="meter"
                       role="progressbar"
-                      aria-label="Avance del corte sobre base contractual de 30 días"
+                      aria-label={`Días consultados sobre referencia ${basis === "dias30" ? "de 30 días" : "calendario"}`}
                       aria-valuenow={Math.max(
                         0,
-                        Math.min(100, data.metadata.avanceTemporalMesPct ?? 0),
+                        Math.min(100, reference?.avanceReferenciaPct ?? 0),
                       )}
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuetext={percent(
-                        data.metadata.avanceTemporalMesPct,
+                        reference?.avanceReferenciaPct ?? null,
                       )}
                     >
                       <span
                         style={{
-                          width: `${Math.max(0, Math.min(100, data.metadata.avanceTemporalMesPct ?? 0))}%`,
+                          width: `${Math.max(0, Math.min(100, reference?.avanceReferenciaPct ?? 0))}%`,
                         }}
                       />
                     </div>
-                    <small>Días consultados / 30 · no es mes calendario</small>
+                    <small>{reference ? `Días consultados / ${count(reference.diasReferencia)} · referencia temporal` : "Referencia calendario no disponible"}</small>
                   </div>
+                </div>
+                <div className="query-provenance">
+                  <dl>
+                    <div><dt>Rango solicitado</dt><dd>{shortDate(data.metadata.fechaInicio)} — {shortDate(data.metadata.fechaFinal)}</dd></div>
+                    <div><dt>Consulta recibida</dt><dd><time dateTime={data.metadata.consultaRecibidaEn}>{receivedAtBogota(data.metadata.consultaRecibidaEn)}</time></dd></div>
+                    <div><dt>Centro</dt><dd>{data.metadata.centroId}</dd></div>
+                  </dl>
+                  <p>Las fechas de actualización y corte histórico del origen están pendientes de confirmar.</p>
                 </div>
                 <div className="data-status">
                   <span>
@@ -458,8 +484,8 @@ export default function App() {
                       className={`status-dot ${query.isFetching ? "loading" : ""}`}
                     />
                     {query.isFetching
-                      ? "Actualizando · se conserva el corte anterior"
-                      : `Consulta recibida a las ${new Date(query.dataUpdatedAt).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}`}
+                      ? "Actualizando · se conserva la consulta anterior"
+                      : "Datos de la respuesta recibida"}
                   </span>
                   <button
                     className="text-button"
@@ -473,7 +499,21 @@ export default function App() {
                     Actualizar corte
                   </button>
                 </div>
-                <KpiCards data={data} />
+                <div className="temporal-toolbar">
+                  <fieldset className="temporal-selector">
+                    <legend>Referencia temporal</legend>
+                    {(["dias30", "calendario"] as const).map((value) => (
+                      <label key={value}>
+                        <input type="radio" name="referencia-temporal" value={value} checked={basis === value}
+                          disabled={value === "calendario" && data.referenciasTemporales.calendario === null}
+                          onChange={() => { setBasis(value); setExported(false); }} />
+                        {value === "dias30" ? "30 días" : "Mes calendario"}
+                      </label>
+                    ))}
+                  </fieldset>
+                  <p>{data.referenciasTemporales.motivoCalendario ?? "Cambia la referencia de lectura; conserva presupuesto y corte."}</p>
+                </div>
+                <KpiCards data={data} basis={basis} />
               </>
             )}
           </section>
@@ -489,15 +529,18 @@ export default function App() {
                     />
                   }
                 >
-                  <Charts data={data} dark={dark} onSelect={setEpisode} />
+                  <Charts data={data} dark={dark} onSelect={setEpisode} basis={basis} />
                 </Suspense>
               </ChartBoundary>
               <PfgpSimulator
-                key={`${selectedId}-${range.inicio}-${range.final}-${query.dataUpdatedAt}`}
+                key={`simulator-${selectedId}-${range.inicio}-${range.final}-${query.dataUpdatedAt}`}
                 fechaInicio={range.inicio}
                 fechaFinal={range.final}
                 centroId={99}
                 idContrato={data.metadata.idContrato}
+                codigoContrato={data.metadata.codigoContrato}
+                revision={data.metadata.revision}
+                onRefresh={refresh}
               />
               <AuditPanel
                 data={data}
@@ -507,7 +550,7 @@ export default function App() {
                 }}
               />
               <EpisodesTable
-                key={`${selectedId}-${range.inicio}-${range.final}-${query.dataUpdatedAt}`}
+                key={`episodes-${selectedId}-${range.inicio}-${range.final}-${query.dataUpdatedAt}`}
                 episodes={data.episodios}
                 onSelect={setEpisode}
                 reviewToken={reviewToken}
@@ -526,11 +569,11 @@ export default function App() {
                     defecto del motor y requiere revisar cobertura.
                   </p>
                   <p>
-                    El burn rate compara ejecución con días del rango / 30. La
-                    proyección es una extrapolación lineal, no un modelo
-                    predictivo validado. Para cortes parciales o de varios
-                    meses, la referencia no representa el avance calendario del
-                    contrato.
+                    La facturación normalizada divide el facturado entre los días
+                    consultados y lo multiplica por 30 o por los días del mes.
+                    La referencia calendario solo está disponible dentro de un
+                    mismo mes. No se confirma aún la periodicidad del presupuesto;
+                    estos valores no acreditan déficit mensual ni cierre contractual.
                   </p>
                   <p>
                     Los ID repetidos son señales de revisión, no evidencia de
@@ -543,15 +586,17 @@ export default function App() {
                   <p>
                     El backend clasifica insumos por el código literal
                     MEDICAMENTOS; la clasificación del resto como
-                    procedimiento/CUPS no está validada. El Pareto acumula sobre
-                    una lista de hasta 20 servicios. Los alias ocultan
+                    procedimiento/CUPS no está validada. El Pareto utiliza el
+                    total bruto de todos los servicios antes de limitar la lista.
+                    La concentración usa cabeceras de episodios. Los alias ocultan
                     identificadores directos; los datos financieros por episodio
                     siguen siendo información de uso restringido. Esta versión
                     está destinada al equipo local.
                   </p>
                   <p>
-                    No se conoce la fecha de actualización del origen. La hora
-                    visible corresponde a la recepción de esta consulta. El
+                    No se conoce la fecha de actualización del origen. La fecha y
+                    hora visibles corresponden a la recepción registrada por el backend,
+                    expresada en la zona horaria de Bogotá. El
                     listado muestra los contratos retornados para el período.
                     Cada detalle consulta explícitamente el contrato
                     seleccionado; sus indicadores no combinan contratos
@@ -561,16 +606,16 @@ export default function App() {
               </details>
             </>
           )}
+          </>}
           <footer className="page-footer">
             <span>
               Grupo Clínica Médicos <span className="footer-separator">/</span>{" "}
               Inteligencia financiera
             </span>
-            <span>PFGP · Centro 99</span>
           </footer>
         </main>
       </div>
-      {episode && data && !query.isError && (
+      {!isRegistering && episode && data && !query.isError && (
         <PatientDrillDownModal
           key={`${selectedId}-${episode.consecutivoIngreso}-${data.metadata.revision}`}
           consecutivoIngreso={episode.consecutivoIngreso}

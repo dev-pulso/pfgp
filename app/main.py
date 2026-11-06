@@ -4,14 +4,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.schemas.pfgp_schemas import PfgpQuerySchema, AnalyticsReportResponse, ContractsResponse
 from app.adapters.eklipse_client import EklipseClient, EklipseAuthError
-from app.services.pfgp_analytics_service import PfgpAnalyticsService, NoDataError, MultipleContractsError, StaleReportError
+from app.services.pfgp_analytics_service import PfgpAnalyticsService, NoDataError, MultipleContractsError, StaleReportError, ScenarioNotCalculableError
 from app.schemas.pfgp_schemas import SimulacionRequest, SimulacionResponse, PatientDrillDownResponse
+from app.routers.contract_registration import router as contract_registration_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="Motor analítico y de auditoría forense para contratos PFGP del Grupo Clínica Médicos (Eklipse).",
     version=settings.VERSION
 )
+app.include_router(contract_registration_router, prefix=settings.API_V1_STR)
 
 # Configurar CORS para el frontend (Angular, React, Vue o Streamlit)
 app.add_middleware(
@@ -43,9 +45,11 @@ def source_error(error: Exception) -> HTTPException:
     if isinstance(error, NoDataError):
         return HTTPException(status_code=404, detail="Sin datos para el contrato o rango seleccionado.")
     if isinstance(error, MultipleContractsError):
-        return HTTPException(status_code=409, detail="El origen devolvió identificadores de contrato repetidos. Revisa la integridad del catálogo.")
+        return HTTPException(status_code=409, detail={"code": "DUPLICATE_CONTRACTS", "message": "El origen devolvió identificadores de contrato repetidos o falta seleccionar un contrato."})
     if isinstance(error, StaleReportError):
-        return HTTPException(status_code=409, detail="El corte cambió. Actualiza el informe antes de abrir el detalle.")
+        return HTTPException(status_code=409, detail={"code": "STALE_REPORT", "message": "El corte cambió. Actualiza el informe antes de continuar."})
+    if isinstance(error, ScenarioNotCalculableError):
+        return HTTPException(status_code=422, detail={"code": "SCENARIO_NOT_CALCULABLE", "message": "El escenario no puede calcularse: faltan importes válidos o el traslado no concilia con la facturación."})
     if isinstance(error, EklipseAuthError):
         return HTTPException(status_code=503, detail={"code": "SOURCE_AUTH_REQUIRED", "message": "Configura o renueva EKLIPSE_TOKEN en el backend."})
     return HTTPException(status_code=502, detail="No se pudo obtener un informe válido de Eklipse. Revisa la conexión y configuración local.")

@@ -1,18 +1,23 @@
-# Pendientes priorizados · 4 de noviembre de 2026
+# Pendientes priorizados · 5 de noviembre de 2026
 
-| Prioridad | Pendiente | Esfuerzo orientativo | Evidencia / criterio de cierre |
-| --- | --- | --- | --- |
-| Alta | Configurar o renovar token autorizado y validar un corte real | Depende del acceso | `scripts/check_connection.py:1`, `app/config.py:17`. Debe devolver `informe_valido_con_alias` o `catalogo_valido_para_seleccion`, sin registrar identidades. |
-| Alta antes de red | Autenticación de usuarios, autorización, privacidad por rol y política de exportación | 3–5 días + revisión organizacional | `app/main.py:68`. CORS y enlace local no sustituyen controles de acceso; los importes por episodio siguen siendo sensibles. |
-| Alta | Confirmar unidad de evento, unicidad de ingreso/servicio y repeticiones legítimas | 2–4 días + responsable del dato | `app/services/pfgp_analytics_service.py:163`, `app/services/pfgp_analytics_service.py:174`. Evitar falsos duplicados y sumas entre agrupadores. |
-| Media | Validar vigencia, período presupuestal y base de 30 días | 1–3 días | `app/services/pfgp_analytics_service.py:83`. Definir cuándo son comparables ejecución, avance y proyección. |
-| Media | Diccionario aprobado: copagos/recuperación, EVENTOS, medicamentos y procedimientos | 2–4 días | `app/services/pfgp_analytics_service.py:173`, `app/services/pfgp_analytics_service.py:273`, `app/services/pfgp_analytics_service.py:315`. |
-| Media | Dinero decimal, cobertura y nulos explícitos | 2–3 días | `app/schemas/pfgp_schemas.py:22`, `app/services/pfgp_analytics_service.py:101`. Pruebas de reconciliación exacta y denominadores válidos. |
-| Media | Pareto sobre universo completo o total de referencia explícito | 1 día | `app/services/pfgp_analytics_service.py:262`, `frontend/src/lib/analytics.ts:3`. El actual corresponde solo a la lista devuelta. |
-| Media | Paginación/filtrado de servidor y rendimiento con volumen real | 2–4 días | `frontend/src/components/EpisodesTable.tsx:106`. Hoy se descarga la respuesta completa y se filtra en memoria. |
-| Media | Optimizar módulo ECharts y evaluar impresión/accesibilidad manual | 1–2 días | `frontend/src/components/Charts.tsx:1`, `frontend/e2e/dashboard.spec.ts:1`. Mantener legibilidad, foco, tablas alternativas y movimiento reducido. |
-| Baja | Actualizar integración TestClient/HTTPX y fijar versiones Python | 0,5–1 día | `tests/test_analytics.py:5`, `requirements.txt:1`. La suite pasa; hay advertencia de deprecación en el entorno instalado. |
+**Regla confirmada por el usuario:** todas las consultas utilizan siempre `centroId=99`, incluido catálogo, dashboard, detalle y simulador. Esta restricción ya está aplicada en los flujos HTTP. La comparación con la etiqueta «TODOS» de Eklipse no cambia el centro obligatorio.
 
-**Resuelto:** catálogo completo y selección por botón, con consulta explícita por ID, búsqueda, orden y paginación. Ver `app/main.py:53`, `app/main.py:68` y `frontend/src/components/ContractsPanel.tsx:13`.
+| Prioridad | Pendiente | Criterio de cierre |
+| --- | --- | --- |
+| Alta | Confirmar periodicidad y vigencia de `totalContratado` | Responsable del contrato acredita si es mensual o corresponde al rango. Hasta entonces se muestra como presupuesto reportado y no se afirma déficit mensual. |
+| Alta | Confirmar corte histórico de `acostado` | El proveedor acredita su relación temporal con `facturado`; la misma consulta se usa hoy como supuesto visible. |
+| Alta | Confirmar unidad de evento e IDs repetidos legítimos | Diccionario aprobado de ingreso, episodio, evento y servicio. No se descuentan repeticiones automáticamente. |
+| Alta antes de red | Autenticación, autorización y política de exportación | Controles de acceso validados antes de exponer el dashboard fuera del equipo local. |
+| Alta antes de habilitar escritura | Integrar registro de configuración PFGP en Eklipse | Incorporar endpoint y ajuste de lectores, registrar autoridad de escritura específica y compilar en el proyecto completo. Validar en staging metadatos SQL, transacción y dos peticiones concurrentes. Configurar la URL local únicamente tras esa comprobación. Véase el [checklist de integración](REGISTRO_CONTRATOS_PFGP.md#lista-de-integración-y-comprobación). |
+| Alta antes de admitir renovaciones | Definir selección temporal de checkpoints | Acreditar una regla de vigencia y actualizar lectores. Esta entrega almacena fechas y rechaza cualquier segunda configuración del contrato; no promete elegir presupuesto por rango. |
+| Alta | Completar paridad entre interfaz de Eklipse y respuesta actual | Acreditar centro y fechas efectivamente aplicadas; resolver la diferencia de $42.136.939 de Municipios documentada en la auditoría. La recepción del backend identifica una extracción, pero no acredita el corte del proveedor. |
+| Media | Validar diccionario de recuperación, EVENTOS y tipos de servicio | Aclarar significado contractual de `totalRecuperado`, convención EVENTOS ID 1 y catálogo medicamentos/procedimientos. |
+| Media | Rendimiento con volumen real | Medir extracción, cálculo y renderizado; decidir paginación de servidor con evidencia. |
+| Media | Fechas y datos adicionales para nuevas métricas | Obtener fecha de prestación/facturación, capacidad y costos antes de incorporar tendencias, ocupación, reingresos o rentabilidad. |
+| Media | Accesibilidad manual y tamaño de gráficos | Revisar lectores de pantalla, impresión y carga diferida del módulo ECharts. |
+| Media | Ejecutar suite e2e ampliada | Hay 20 escenarios analíticos y 6 de configuración de contratos escritos. Las comprobaciones manuales con datos sintéticos se registran por separado; falta ejecutar el runner completo y renovar comprobaciones automatizadas de accesibilidad. |
+| Baja | Dependencias Python reproducibles | Fijar versiones después de validar compatibilidad y revisar advertencias del adaptador de pruebas. |
 
-Las estimaciones excluyen aprobaciones, obtención de datos y validación por responsables del negocio. No se han entrenado ni validado modelos predictivos en esta implementación del dashboard: la proyección de 30 días es lineal, como se documenta en `docs/DASHBOARD_EJECUTIVO.md`.
+La mejora implementa separación de presupuestos, conciliación residual, exposición combinada bajo supuesto explícito, referencias temporales seleccionables, simulación sobre porción entidad y revisión, Pareto completo, concentración y comparación por agrupador. El README registra las pruebas aprobadas y la comprobación local agregada.
+
+La [auditoría de Eklipse del 5 de noviembre](AUDITORIA_EKLIPSE_2026-11-05.md) registra por separado la extracción anterior, la consulta actual y las comprobaciones visuales, con estados de evidencia explícitos.

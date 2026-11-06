@@ -4,6 +4,40 @@ const number = z.number().finite();
 const metric = number.nullable();
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const text = z.string().max(1000);
+const receivedAt = z.string().datetime({ offset: true });
+const balance = z.object({
+  cabecera: metric,
+  sumaComponentes: metric,
+  diferencia: metric,
+  estado: z.enum(["conciliado", "con_diferencia", "no_evaluable"]),
+});
+
+export type TemporalBasis = "dias30" | "calendario";
+const financialSummary = z.object({
+  presupuestoContractualReportado: metric,
+  sumaLimitesAgrupadores: metric,
+  diferenciaPresupuestos: metric,
+  coberturaLimitesPct: metric,
+  ejecucionContractualPct: metric,
+  participacionEventosPct: metric,
+});
+const exposure = z.object({
+  estado: z.enum(["disponible", "no_disponible", "solapamiento"]),
+  registrosAcostado: metric,
+  totalAcostado: metric,
+  totalCombinado: metric,
+  ejecucionCombinadaPct: metric,
+  disponibilidadCalculada: metric,
+  disponibilidadReportada: metric,
+  diferenciaDisponibilidad: metric,
+  ingresosCompartidos: number,
+  supuestoMismoCorte: z.literal(true),
+});
+const timeReference = z.object({
+  diasReferencia: number,
+  facturacionNormalizada: metric,
+  avanceReferenciaPct: metric,
+});
 
 const group = z.object({
   idAgrupador: z.number().int(),
@@ -21,16 +55,27 @@ const group = z.object({
   cmeContratado: metric,
   cmeRealPromedio: metric,
   estadoAlerta: text,
+  efectoVolumen: metric,
+  efectoValor: metric,
+  diferenciaPresupuestoImplicito: metric,
+  medianaFacturacion: metric,
+  p90Facturacion: metric,
+  cantidadObservaciones: number,
 });
 const episode = z.object({
   consecutivoIngreso: z.number().int().positive(),
   paciente: z.string().regex(/^Episodio \d{4,}$/),
   agrupador: text,
+  idAgrupador: z.number().int(),
   fechaIngreso: z.literal(""),
   diasEstancia: metric,
   totalFacturadoCabecera: metric,
   sumaServiciosDetalle: metric,
   discrepanciaIntegridad: metric,
+  totalRecuperado: metric,
+  discrepanciaResidual: metric,
+  importeEntidadServicios: metric,
+  importePacienteServicios: metric,
   montoDuplicadoDetectado: metric,
   cmeContratado: metric,
   ratioSeveridadCME: metric,
@@ -39,7 +84,51 @@ const episode = z.object({
   indicePresionInsumosPct: metric,
 });
 export const dashboardSchema = z.object({
+  resumenFinanciero: financialSummary,
+  exposicion: exposure,
+  conciliacionNiveles: z.object({
+    contratoAgrupadores: balance,
+    contratoEpisodios: balance,
+    agrupadores: z.array(balance.extend({
+      idAgrupador: z.number().int(),
+      nombre: text,
+      cantidadEpisodios: z.number().int().nonnegative(),
+    })),
+    agrupadoresConciliados: z.number().int().nonnegative(),
+    agrupadoresConDiferencia: z.number().int().nonnegative(),
+    agrupadoresNoEvaluables: z.number().int().nonnegative(),
+    montoAbsolutoDiferenciasAgrupadores: metric,
+  }),
+  conciliacion: z.object({
+    episodiosEvaluables: number,
+    episodiosConciliados: number,
+    episodiosConDiferencia: number,
+    episodiosNoEvaluables: number,
+    porcentajeConciliadoPct: metric,
+    montoAbsolutoSinExplicar: metric,
+  }),
+  referenciasTemporales: z.object({
+    dias30: timeReference,
+    calendario: timeReference.nullable(),
+    motivoCalendario: text.nullable(),
+  }),
+  concentracion: z.object({
+    totalFacturadoEpisodios: metric,
+    cantidadEpisodios: number,
+    cantidadTop10: number,
+    top10Pct: metric,
+    cantidadTopDecil: number,
+    topDecilPct: metric,
+  }),
+  paretoUniverso: z.object({
+    totalServicios: number,
+    valorTotal: number,
+    porcentajesDisponibles: z.boolean(),
+    restoTop10: number,
+  }),
   metadata: z.object({
+    centroId: z.literal(99),
+    consultaRecibidaEn: receivedAt,
     idContrato: z.number().int(),
     codigoContrato: text,
     nombreContrato: text,
@@ -105,6 +194,8 @@ export const patientDrillDownSchema = z.object({
     cantidad: number,
     valorProducto: number,
     valorTotal: number,
+    importeEntidad: metric,
+    importePaciente: metric,
     es_duplicado: z.boolean(),
     es_cero: z.boolean(),
   })),
@@ -119,6 +210,7 @@ export type DrillDownRequest = DateRange & {
 
 export const contractsSchema = z
   .object({
+    consultaRecibidaEn: receivedAt,
     inicio: date,
     final: date,
     centroId: z.literal(99),
@@ -132,6 +224,8 @@ export const contractsSchema = z
         presupuestoTotalLimite: metric,
         totalRecuperado: metric,
         cantidadAgrupadores: z.number().int().nonnegative(),
+        resumenFinanciero: financialSummary,
+        exposicion: exposure,
       }),
     ),
   })
@@ -144,6 +238,7 @@ export const contractsSchema = z
 export type Contracts = z.infer<typeof contractsSchema>;
 
 export type SimulationRequest = DateRange & {
+  revision: string;
   centroId: number;
   idContrato: number;
   excluirTerapiaVAC: boolean;
@@ -152,20 +247,29 @@ export type SimulationRequest = DateRange & {
 };
 
 export const simulationSchema = z.object({
+  inicio: date,
+  final: date,
+  centroId: z.literal(99),
+  idContrato: z.number().int().positive(),
+  revision: z.string().regex(/^[a-f0-9]{64}$/),
   totalFacturadoOriginal: number,
   totalFacturadoSimuladoPGP: number,
   totalTrasladadoAEvento: number,
+  totalTrasladadoPaciente: number,
+  totalTrasladadoBruto: number,
   alivioFinancieroPct: number,
   agrupadoresRecalculados: z.array(
     z.object({
       idAgrupador: z.number().int(),
       nombre: text,
-      limite: number,
+      limite: metric,
       facturadoOriginal: number,
       montoExcluidoEvento: number,
+      montoExcluidoPaciente: number,
+      montoExcluidoBruto: number,
       facturadoSimuladoPGP: number,
-      ejecucionOriginalPct: number,
-      ejecucionSimuladaPct: number,
+      ejecucionOriginalPct: metric,
+      ejecucionSimuladaPct: metric,
     }),
   ),
 });

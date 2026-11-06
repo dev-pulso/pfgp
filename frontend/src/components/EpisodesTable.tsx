@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import type { Episode } from "../api/schema";
 import { filterEpisodes } from "../lib/analytics";
-import { amount, count, ratio } from "../lib/format";
+import { amount, count, ratio, residualAmount } from "../lib/format";
 
 type Sort = "totalFacturadoCabecera" | "diasEstancia" | "ratioSeveridadCME";
 export default function EpisodesTable({
@@ -119,8 +119,8 @@ export default function EpisodesTable({
               <tr>
                 <th>Episodio / agrupador</th>
                 {sortHeader("diasEstancia", "Estancia")}
-                {sortHeader("totalFacturadoCabecera", "Facturado (COP)")}
-                <th>Integridad (COP)</th>
+                {sortHeader("totalFacturadoCabecera", "Facturado  ")}
+                <th>Diferencia residual  </th>
                 {sortHeader("ratioSeveridadCME", "Facturado / CME")}
                 <th>
                   <span className="sr-only">Detalle</span>
@@ -150,19 +150,17 @@ export default function EpisodesTable({
                   <td>
                     <span
                       className={
-                        e.discrepanciaIntegridad ? "integrity-warning" : ""
+                        e.discrepanciaResidual != null && Math.abs(e.discrepanciaResidual) > 0.01 ? "integrity-warning" : ""
                       }
                     >
-                      {amount(e.discrepanciaIntegridad)}
+                      {residualAmount(e.discrepanciaResidual)}
                     </span>
                     <span className="cell-secondary">
-                      {e.discrepanciaIntegridad == null
-                        ? "Sin dato"
-                        : e.discrepanciaIntegridad === 0
-                          ? "Coincide"
-                          : e.discrepanciaIntegridad > 0
-                            ? "Detalle mayor"
-                            : "Cabecera mayor"}
+                      {e.discrepanciaResidual == null
+                        ? "No evaluable"
+                        : Math.abs(e.discrepanciaResidual) <= 0.01
+                          ? "Conciliado"
+                          : "Por conciliar"}
                     </span>
                   </td>
                   <td>
@@ -231,7 +229,8 @@ export default function EpisodesTable({
       </div>
       <p className="footnote">
         Los alias solo identifican filas dentro de esta consulta; no representan
-        personas únicas ni permiten seguirlas entre cortes.
+        personas únicas ni permiten seguirlas entre cortes. Diferencia residual =
+        detalle − facturado − recuperado; tolerancia de conciliación: $0,01.
       </p>
     </section>
   );

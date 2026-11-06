@@ -1,0 +1,190 @@
+--- a/8004/sln/apps/estadistico-pfgp/src/estadistico-pfgp.module.ts
++++ b/8004/sln/apps/estadistico-pfgp/src/estadistico-pfgp.module.ts
+@@ -1,4 +1,6 @@
+ import { Module } from '@nestjs/common';
++import { ContratosPfgpService } from './infrastructure/services/contratos-pfgp.service';
++import { ContratosPfgpController } from './presentation/controllers/contratos-pfgp.controller';
+ import {
+   AcostadoController,
+   CentralizadoController,
+@@ -10,8 +12,9 @@
+ import { FetchConsolidadoImpl } from './infrastructure/services/consolidado';
+ 
+ @Module({
+-  providers: [FetchFacturadoImpl, FetchAcostadoImpl, FetchConsolidadoImpl],
++  providers: [FetchFacturadoImpl, FetchAcostadoImpl, FetchConsolidadoImpl, ContratosPfgpService],
+   controllers: [
++    ContratosPfgpController,
+     FacturadoController,
+     AcostadoController,
+     CentralizadoController,
+--- a/8004/sln/apps/estadistico-pfgp/src/infrastructure/services/facturado/fetch.impl.ts
++++ b/8004/sln/apps/estadistico-pfgp/src/infrastructure/services/facturado/fetch.impl.ts
+@@ -1,4 +1,5 @@
+ import { Between, In } from 'typeorm';
++import { configuredContractCodes } from '../configured-contract-codes';
+ import { Injectable } from '@nestjs/common';
+ import { BaseSource } from '@common/infrastructure/services';
+ import {
+@@ -49,6 +50,7 @@
+       el.agrupador = agrupadores.filter(a => a.id === el.agrupadorId)[0];
+     });
+ 
++    const codigosPfgp = await configuredContractCodes(this.conn, CONTRATOS_PFGP(this.auth.context, inicio), checkPoints);
+     let facturas = await facturaRp.find({
+       relations: [
+         'detalleContrato',
+@@ -63,7 +65,7 @@
+       where: {
+         createdAt: Between(inicio, final),
+         detalleContrato: {
+-          codigo: In(CONTRATOS_PFGP(this.auth.context, inicio)),
++          codigo: In(codigosPfgp),
+         },
+         ingreso: {
+           centroId,
+--- a/8004/sln/apps/estadistico-pfgp/src/infrastructure/services/acostado/fetch.impl.ts
++++ b/8004/sln/apps/estadistico-pfgp/src/infrastructure/services/acostado/fetch.impl.ts
+@@ -1,10 +1,12 @@
+ import { In, IsNull, Like } from 'typeorm';
++import { configuredContractCodes } from '../configured-contract-codes';
++import { groupByContractDetail } from '../group-by-contract-detail';
+ import { Injectable } from '@nestjs/common';
+ import { BaseSource } from '@common/infrastructure/services';
+ import { AgrupadorServicioIpsBasicOrm, CheckPointContratoOrm, DetalleContratoOrm } from '../../orm';
+ import { IngresoOrm } from '@sln/orm/adn';
+ import { EstanciaOrm } from '@sln/orm/hpn';
+-import { getDiffInDays, groupByKey } from '@common/application/services';
++import { getDiffInDays } from '@common/application/services';
+ import { CONTRATOS_PFGP, generateFakeAgrupador } from '@sln/pfgp/application/constants';
+ import { orderBy } from 'lodash';
+ import { ACOSContratoI, ACOSIteraccionI } from '../../factories/acostado';
+@@ -24,8 +26,9 @@
+     const estanciaRp = this.conn.getRepository(EstanciaOrm);
+     const ingresoRp = this.conn.getRepository(IngresoOrm);
+ 
++    const codigosPfgp = await configuredContractCodes(this.conn, CONTRATOS_PFGP(this.auth.context, inicio), checkPoints);
+     const contratos = await detalleContratoRp.find({
+-      where: { codigo: In(CONTRATOS_PFGP(this.auth.context, inicio)) },
++      where: { codigo: In(codigosPfgp) },
+     });
+ 
+     const estancias = await estanciaRp.find({
+@@ -67,7 +70,7 @@
+       i.nombreContrato = detalleContrato.nombre;
+     });
+ 
+-    const groupedByContrato = groupByKey(ingresos, 'codigoContrato', 'nombreContrato');
++    const groupedByContrato = groupByContractDetail(ingresos);
+ 
+     const fakeAgrupador = generateFakeAgrupador();
+ 
+@@ -76,11 +79,7 @@
+     if (!checkPoints) {
+       const checkPointRp = this.conn.getRepository(CheckPointContratoOrm);
+ 
+-      const contratosIds: number[] = [];
+-
+-      contratosRefactorizados.forEach(c => {
+-        contratosIds.push(c.idContrato);
+-      });
++      const contratosIds = groupedByContrato.map(group => group.key);
+ 
+       checkPoints = await checkPointRp.find({
+         where: {
+@@ -98,7 +97,7 @@
+     fakeCheckPoint.agrupadores = [];
+ 
+     groupedByContrato.forEach(el => {
+-      const checkPointsFiltered = checkPoints.filter(ch => ch.codigoContrato === el.key);
++      const checkPointsFiltered = checkPoints.filter(ch => ch.contratoId === el.key);
+       const checkPoint = checkPointsFiltered.length ? checkPointsFiltered[0] : undefined;
+ 
+       el.rows.map(s => {
+@@ -109,7 +108,7 @@
+ 
+       const result: ACOSContratoI = {
+         idContrato: el.rows[0].detalleContratoId,
+-        codigoContrato: el.key,
++        codigoContrato: el.rows[0].codigoContrato,
+         nombreContrato: el.name,
+         ingresos: el.rows,
+         cantidadIteracciones: el.rows.length,
+--- a/8004/sln/apps/estadistico-pfgp/src/infrastructure/factories/facturado/facturas-to-contratos.ts
++++ b/8004/sln/apps/estadistico-pfgp/src/infrastructure/factories/facturado/facturas-to-contratos.ts
+@@ -1,4 +1,5 @@
+ import { getDiffInDays, groupByKey } from '@common/application/services';
++import { groupByContractDetail } from '../../services/group-by-contract-detail';
+ import {
+   AgrupadorServicioIpsBasicOrm,
+   CheckPointContratoOrm,
+@@ -70,13 +71,8 @@
+     delete el.ingreso.pacienteId;
+     el.ingreso.paciente.setTypes(true);
+ 
+-    el.codigoContrato = el.detalleContrato.contrato
+-      ? el.detalleContrato.contrato.codigo
+-      : el.detalleContrato.codigo;
+-
+-    el.nombreContrato = el.detalleContrato.contrato
+-      ? el.detalleContrato.contrato.nombre
+-      : el.detalleContrato.nombre;
++    el.codigoContrato = el.detalleContrato.codigo;
++    el.nombreContrato = el.detalleContrato.nombre;
+ 
+     if (el.ingreso.paciente) {
+       el.idPaciente = el.ingreso.paciente.id;
+@@ -84,7 +80,7 @@
+     }
+   });
+ 
+-  const dataGroupedByContrato = groupByKey(facturas, 'codigoContrato', 'nombreContrato');
++  const dataGroupedByContrato = groupByContractDetail(facturas);
+ 
+   const dataFormatted: FACTContratoI[] = [];
+ 
+@@ -157,27 +153,26 @@
+       delete s.ingreso.hojasProducto;
+     });
+ 
+-    dataGroupedByContrato.map(d => {
+-      const facturas: FacturaOrm[] = [];
+-      d.rows.map(r => {
+-        const ft = facturas.filter(f => f.ingreso.paciente.id === r.ingreso.paciente.id);
+-        if (ft.length) {
+-          ft[0].valorFacturado += r.valorFacturado;
+-          ft[0].valorRecuperado += r.valorRecuperado;
+-          ft[0].ingreso.servicios.push(...r.ingreso.servicios);
+-        } else {
+-          facturas.push(r);
+-        }
+-      });
+-      facturas.map(f => {
+-        f.ingreso.servicios = orderBy(f.ingreso.servicios, 'pesoAgrupador', 'desc');
+-      });
+-      d.rows = facturas;
+-    });
++    // Aggregate only after this contract's invoices have been normalized.
++    const facturasDelContrato: FacturaOrm[] = [];
++    el.rows.forEach(r => {
++      const ft = facturasDelContrato.filter(f => f.ingreso.paciente.id === r.ingreso.paciente.id);
++      if (ft.length) {
++        ft[0].valorFacturado += r.valorFacturado;
++        ft[0].valorRecuperado += r.valorRecuperado;
++        ft[0].ingreso.servicios.push(...r.ingreso.servicios);
++      } else {
++        facturasDelContrato.push(r);
++      }
++    });
++    facturasDelContrato.forEach(f => {
++      f.ingreso.servicios = orderBy(f.ingreso.servicios, 'pesoAgrupador', 'desc');
++    });
++    el.rows = facturasDelContrato;
+ 
+     const result: FACTContratoI = {
+       idContrato: el.rows[0].detalleContratoId,
+-      codigoContrato: el.key,
++      codigoContrato: el.rows[0].codigoContrato,
+       nombreContrato: el.name,
+       totalFacturado: 0,
+       totalRecuperado: 0,

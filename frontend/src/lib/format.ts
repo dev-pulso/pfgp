@@ -1,7 +1,10 @@
 const decimal = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 });
 const money = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 });
+const preciseMoney = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 2 });
 export const amount = (n: number | null | undefined) =>
   n == null ? "No disponible" : `$ ${money.format(n)}`;
+export const residualAmount = (n: number | null | undefined) =>
+  n == null ? "No disponible" : `$ ${preciseMoney.format(n)}`;
 export const percent = (n: number | null | undefined) =>
   n == null ? "No disponible" : `${decimal.format(n)} %`;
 export const count = (n: number | null | undefined) =>
@@ -23,6 +26,16 @@ export const shortDate = (date: string) =>
     year: "numeric",
     timeZone: "UTC",
   }).format(new Date(`${date}T12:00:00Z`));
+export const receivedAtBogota = (timestamp: string | null | undefined) => {
+  if (!timestamp) return "No disponible";
+  const received = new Date(timestamp);
+  if (Number.isNaN(received.getTime())) return "No disponible";
+  return `${new Intl.DateTimeFormat("es-CO", {
+    dateStyle: "medium",
+    timeStyle: "medium",
+    timeZone: "America/Bogota",
+  }).format(received)} (Bogotá, UTC−5)`;
+};
 export function currentRange(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Bogota",

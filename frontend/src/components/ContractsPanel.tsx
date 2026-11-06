@@ -8,7 +8,7 @@ import {
   Search,
 } from "lucide-react";
 import type { Contracts } from "../api/schema";
-import { amount, count, shortDate } from "../lib/format";
+import { amount, count, percent, receivedAtBogota, shortDate } from "../lib/format";
 
 export default function ContractsPanel({
   catalog,
@@ -61,9 +61,6 @@ export default function ContractsPanel({
         <div>
           <span className="eyebrow">CENTRO 99 · CATÁLOGO DE CONTRATOS</span>
           <h2>{count(catalog.totalContratos)} contratos disponibles</h2>
-          <p className="catalog-period">
-            {shortDate(catalog.inicio)} — {shortDate(catalog.final)}
-          </p>
         </div>
         <button
           className="text-button"
@@ -73,6 +70,14 @@ export default function ContractsPanel({
           <RefreshCw size={14} className={refreshing ? "spinning" : ""} />
           {refreshing ? "Actualizando listado…" : "Actualizar listado"}
         </button>
+      </div>
+      <div className="query-provenance">
+        <dl>
+          <div><dt>Rango solicitado</dt><dd>{shortDate(catalog.inicio)} — {shortDate(catalog.final)}</dd></div>
+          <div><dt>Consulta recibida</dt><dd><time dateTime={catalog.consultaRecibidaEn}>{receivedAtBogota(catalog.consultaRecibidaEn)}</time></dd></div>
+          <div><dt>Centro</dt><dd>{catalog.centroId}</dd></div>
+        </dl>
+        <p>Las fechas de actualización y corte histórico del origen están pendientes de confirmar.</p>
       </div>
       <div className="card episodes-card">
         <div className="table-toolbar">
@@ -121,8 +126,9 @@ export default function ContractsPanel({
             <thead>
               <tr>
                 <th>Contrato</th>
-                <th>Facturado (COP)</th>
-                <th>Límite de agrupadores (COP)</th>
+                <th>Facturado  </th>
+                <th>Presupuesto reportado  </th>
+                <th>Ejecución contractual</th>
                 <th>Agrupadores</th>
                 <th>Acción</th>
               </tr>
@@ -140,15 +146,20 @@ export default function ContractsPanel({
                   </td>
                   <td className="money-cell">
                     <span className="catalog-mobile-label">
-                      Facturado (COP)
+                      Facturado
                     </span>
                     {amount(c.totalFacturadoContrato)}
                   </td>
                   <td>
                     <span className="catalog-mobile-label">
-                      Límite de agrupadores (COP)
+                      Presupuesto reportado
                     </span>
-                    {amount(c.presupuestoTotalLimite)}
+                    {amount(c.resumenFinanciero.presupuestoContractualReportado)}
+                    <span className="cell-secondary">Límites: {amount(c.presupuestoTotalLimite)}</span>
+                  </td>
+                  <td>
+                    <span className="catalog-mobile-label">Ejecución contractual</span>
+                    {percent(c.resumenFinanciero.ejecucionContractualPct)}
                   </td>
                   <td>
                     <span className="catalog-mobile-label">Agrupadores</span>

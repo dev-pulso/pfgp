@@ -1,6 +1,24 @@
 import { ArrowRight, Copy, FileWarning, ListChecks } from "lucide-react";
 import type { Dashboard } from "../api/schema";
-import { amount, count } from "../lib/format";
+import { amount, count, percent, residualAmount } from "../lib/format";
+
+type Balance = Dashboard["conciliacionNiveles"]["contratoAgrupadores"];
+const balanceValue = (value: number | null) =>
+  value == null ? <abbr title="No disponible">N/D</abbr> : residualAmount(value);
+
+function BalanceCells({ balance }: { balance: Balance }) {
+  const label = balance.estado === "conciliado"
+    ? "Conciliado"
+    : balance.estado === "con_diferencia" ? "Con diferencia" : "No evaluable";
+  return (
+    <>
+      <td className="money-cell">{balanceValue(balance.cabecera)}</td>
+      <td className="money-cell">{balanceValue(balance.sumaComponentes)}</td>
+      <td className={balance.estado === "con_diferencia" ? "money-cell integrity-warning" : "money-cell"}>{balanceValue(balance.diferencia)}</td>
+      <td><span className={`badge ${balance.estado === "con_diferencia" ? "warning" : "neutral"}`}>{label}</span></td>
+    </>
+  );
+}
 
 export default function AuditPanel({
   data,
@@ -10,6 +28,7 @@ export default function AuditPanel({
   onReview: () => void;
 }) {
   const a = data.auditoriaCalidadDatos;
+  const levels = data.conciliacionNiveles;
   const different = data.agrupadores.filter(
     (g) => g.discrepanciaConteoEventos !== 0,
   );
@@ -53,6 +72,65 @@ export default function AuditPanel({
         <span className="section-meta">
           {count(a.totalServiciosAnalizados)} servicios analizados
         </span>
+      </div>
+      <div className="card level-reconciliation">
+        <div className="level-reconciliation-heading">
+          <div>
+            <span className="eyebrow">CONTRATO, AGRUPADORES Y EPISODIOS</span>
+            <h3>Conciliación entre niveles</h3>
+            <p>Compara la facturación de cada cabecera con sus componentes. Diferencia = suma de componentes − cabecera; tolerancia $0,01.</p>
+          </div>
+          <div className="level-reconciliation-total">
+            <span>Monto absoluto de diferencias por agrupador</span>
+            <strong className={levels.agrupadoresConDiferencia ? "integrity-warning" : ""}>{balanceValue(levels.montoAbsolutoDiferenciasAgrupadores)}</strong>
+          </div>
+        </div>
+        <div className="table-scroll" tabIndex={0} role="region" aria-label="Conciliación del contrato">
+          <table className="balance-table">
+            <caption className="sr-only">Facturación del contrato frente a agrupadores y episodios. Importes en COP.</caption>
+            <thead><tr><th scope="col">Relación</th><th scope="col">Cabecera COP</th><th scope="col">Suma de componentes COP</th><th scope="col">Diferencia COP</th><th scope="col">Estado</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Contrato → agrupadores</th><BalanceCells balance={levels.contratoAgrupadores} /></tr>
+              <tr><th scope="row">Contrato → episodios</th><BalanceCells balance={levels.contratoEpisodios} /></tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="level-reconciliation-counts">
+          {count(levels.agrupadoresConciliados)} agrupadores conciliados · {count(levels.agrupadoresConDiferencia)} con diferencia · {count(levels.agrupadoresNoEvaluables)} no evaluables.
+          Las diferencias positivas y negativas se evalúan por separado; no se compensan.
+        </p>
+        <details className="disclosure">
+          <summary>Ver conciliación monetaria por agrupador</summary>
+          <div className="table-scroll" tabIndex={0} role="region" aria-label="Conciliación monetaria por agrupador">
+            <table className="balance-table">
+              <caption className="sr-only">Cabecera de cada agrupador frente a la suma de cabeceras de sus episodios. Importes en COP.</caption>
+              <thead><tr><th scope="col">Agrupador</th><th scope="col">Episodios</th><th scope="col">Cabecera COP</th><th scope="col">Suma de episodios COP</th><th scope="col">Diferencia COP</th><th scope="col">Estado</th></tr></thead>
+              <tbody>
+                {levels.agrupadores.map((group) => (
+                  <tr key={group.idAgrupador}>
+                    <th scope="row">{group.nombre || "Sin nombre reportado"}</th>
+                    <td>{count(group.cantidadEpisodios)}</td>
+                    <BalanceCells balance={group} />
+                  </tr>
+                ))}
+                {!levels.agrupadores.length && <tr><td colSpan={6}>Sin agrupadores reportados para evaluar.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </details>
+        <p className="level-reconciliation-method">N/D indica un importe no disponible. La conciliación del contrato no sustituye la revisión de cada agrupador ni la comparación de episodios con servicios.</p>
+      </div>
+      <div className="card reconciliation-summary">
+        <div>
+          <span className="eyebrow">CONCILIACIÓN EPISODIO → SERVICIOS</span>
+          <h3>{percent(data.conciliacion.porcentajeConciliadoPct)} de episodios evaluables conciliados</h3>
+          <p>{count(data.conciliacion.episodiosConciliados)} conciliados de {count(data.conciliacion.episodiosEvaluables)} evaluables · {count(data.conciliacion.episodiosNoEvaluables)} no evaluables.</p>
+        </div>
+        <div>
+          <strong className={data.conciliacion.episodiosConDiferencia ? "integrity-warning" : ""}>{residualAmount(data.conciliacion.montoAbsolutoSinExplicar)}</strong>
+          <p>Monto absoluto sin explicar en {count(data.conciliacion.episodiosConDiferencia)} episodios.</p>
+        </div>
+        <p className="reconciliation-method">Detalle − facturado − recuperado. Tolerancia: $0,01. La recuperación explica diferencias de base; no acredita recaudo efectivo.</p>
       </div>
       <div className="audit-grid">
         {findings.map(({ icon: Icon, ...f }) => (

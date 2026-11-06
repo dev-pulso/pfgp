@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { DashboardError, fetchPatientDrillDown } from "../api/dashboard";
-import { amount, count, ratio } from "../lib/format";
+import { amount, count, ratio, residualAmount } from "../lib/format";
 
 interface DrillDownProps {
   consecutivoIngreso: number | null;
@@ -192,11 +192,31 @@ export function PatientDrillDownModal({
                   <dd className="drilldown-caption">Monto: {amount(data.auditoriaEpisodio.montoDuplicado)}</dd>
                 </div>
                 <div>
-                  <dt>Detalle − cabecera</dt>
-                  <dd className={episode.discrepanciaIntegridad ? "integrity-warning" : ""}>
-                    {episode.discrepanciaIntegridad === 0 ? "Consistente" : amount(episode.discrepanciaIntegridad)}
+                  <dt>Diferencia residual</dt>
+                  <dd className={episode.discrepanciaResidual != null && Math.abs(episode.discrepanciaResidual) > 0.01 ? "integrity-warning" : ""}>
+                    {episode.discrepanciaResidual != null && Math.abs(episode.discrepanciaResidual) <= 0.01 ? "Conciliado" : residualAmount(episode.discrepanciaResidual)}
                   </dd>
-                  <dd className="drilldown-caption">Suma de servicios: {amount(episode.sumaServiciosDetalle)}</dd>
+                  <dd className="drilldown-caption">Detalle − facturado − recuperado; tolerancia $0,01.</dd>
+                </div>
+                <div>
+                  <dt>Total bruto de servicios</dt>
+                  <dd>{amount(episode.sumaServiciosDetalle)}</dd>
+                  <dd className="drilldown-caption">Diferencia bruta con cabecera: {amount(episode.discrepanciaIntegridad)}</dd>
+                </div>
+                <div>
+                  <dt>Recuperación reportada</dt>
+                  <dd>{amount(episode.totalRecuperado)}</dd>
+                  <dd className="drilldown-caption">No acredita recaudo efectivo.</dd>
+                </div>
+                <div>
+                  <dt>Porción entidad del detalle</dt>
+                  <dd>{amount(episode.importeEntidadServicios)}</dd>
+                  <dd className="drilldown-caption">Suma de cantidad × valor entidad.</dd>
+                </div>
+                <div>
+                  <dt>Porción paciente del detalle</dt>
+                  <dd>{amount(episode.importePacienteServicios)}</dd>
+                  <dd className="drilldown-caption">Suma de cantidad × valor paciente.</dd>
                 </div>
               </dl>
 
@@ -251,8 +271,10 @@ export function PatientDrillDownModal({
                       <th scope="col">ID / Código</th>
                       <th scope="col">Descripción del servicio</th>
                       <th scope="col">Cantidad</th>
-                      <th scope="col">Tarifa (COP)</th>
-                      <th scope="col">Facturado (COP)</th>
+                      <th scope="col">Tarifa  </th>
+                      <th scope="col">Entidad  </th>
+                      <th scope="col">Paciente  </th>
+                      <th scope="col">Total bruto  </th>
                       <th scope="col">Auditoría</th>
                     </tr>
                   </thead>
@@ -269,6 +291,8 @@ export function PatientDrillDownModal({
                         </td>
                         <td>{count(service.cantidad)}</td>
                         <td className="money-cell">{amount(service.valorProducto)}</td>
+                        <td className="money-cell">{amount(service.importeEntidad)}</td>
+                        <td className="money-cell">{amount(service.importePaciente)}</td>
                         <td className="money-cell">{amount(service.valorTotal)}</td>
                         <td>
                           <div className="drilldown-badges">

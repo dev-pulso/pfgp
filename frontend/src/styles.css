@@ -2377,3 +2377,141 @@ details:not([open]) > :not(summary) {
     min-height: 42px;
   }
 }
+
+/* Financial bases remain visible beside every derived metric. */
+.temporal-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; margin: 0 0 18px; }
+.temporal-selector { display: flex; flex-wrap: wrap; gap: 6px; border: 0; margin: 0; padding: 0; min-width: 0; }
+.temporal-selector legend { font-size: 11px; color: var(--muted); padding: 0 0 8px; }
+.temporal-selector label { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; border: 1px solid var(--border); border-radius: 999px; padding: 8px 14px; color: var(--muted); background: var(--surface); font-size: 12px; cursor: pointer; }
+.temporal-selector label:has(input:checked) { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.temporal-selector label:has(input:disabled) { opacity: 0.6; cursor: not-allowed; }
+.temporal-selector input { accent-color: var(--accent); }
+.temporal-toolbar > p, .financial-context p, .reconciliation-summary p { color: var(--muted); font-size: 11px; line-height: 1.7; }
+.temporal-toolbar > p { max-width: 430px; }
+.executive-kpis .kpi-label { align-items: flex-start; }
+.executive-kpis .kpi-label svg { flex-shrink: 0; margin-top: 1px; }
+.executive-kpis .kpi .badge { white-space: normal; line-height: 1.5; }
+.financial-context { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; padding: 22px; margin-top: 16px; }
+.financial-context > div { min-width: 0; }
+.financial-context h3, .reconciliation-summary h3 { font-size: 13px; line-height: 1.5; margin: 0 0 12px; }
+.financial-context > div > strong { font-size: 25px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.financial-context p { margin-top: 12px; }
+.financial-facts { margin: 0; }
+.financial-facts > div { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin: 9px 0; }
+.financial-facts dt { font-size: 11px; }
+.financial-facts dd { font-size: 13px; text-align: right; margin: 0; font-variant-numeric: tabular-nums; }
+.complementary-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+.complementary-kpis .kpi { min-height: 130px; }
+.complementary-kpis strong { margin-top: 12px; font-size: 22px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.reconciliation-summary { display: grid; grid-template-columns: 1.5fr 1fr; gap: 12px 24px; margin-bottom: 16px; padding: 22px; }
+.reconciliation-summary .eyebrow { display: block; margin-bottom: 10px; }
+.reconciliation-summary strong { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.reconciliation-method { grid-column: 1 / -1; }
+.simulator-breakdown { margin-top: 9px; }
+.drilldown-table { min-width: 1100px; }
+.drilldown-table th:nth-child(n+4):nth-child(-n+7), .drilldown-table td:nth-child(n+4):nth-child(-n+7) { text-align: right; }
+@media (max-width: 1270px) {
+  .financial-context { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .financial-context > div:first-child { grid-column: 1 / -1; }
+  .executive-kpis .kpi-billing { display: flex; }
+  .executive-kpis .kpi-billing .kpi-note { padding-top: 10px; align-self: flex-start; }
+}
+@media (max-width: 740px) {
+  .financial-context, .complementary-kpis, .reconciliation-summary { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .financial-context, .reconciliation-summary { padding: 18px; }
+  .financial-context > div + div { border-top: 1px solid var(--border); padding-top: 18px; }
+  .complementary-kpis .kpi { min-height: 120px; }
+  .temporal-toolbar > p { max-width: none; }
+  .simulator-metrics { grid-template-columns: minmax(0, 1fr); }
+  .financial-facts dd { max-width: 48%; }
+}
+
+.query-provenance {
+  margin: 0 0 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface);
+}
+.query-provenance dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.3fr) auto;
+  gap: 12px 24px;
+  margin: 0;
+}
+.query-provenance dd { font-size: 13px; line-height: 1.7; margin-top: 4px; letter-spacing: 0; }
+.query-provenance p { color: var(--muted); font-size: 11px; line-height: 1.7; margin: 10px 0 0; }
+.level-reconciliation { padding: 22px; margin-bottom: 16px; min-width: 0; }
+.level-reconciliation-heading { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px 24px; align-items: start; margin-bottom: 20px; }
+.level-reconciliation .eyebrow { display: block; margin-bottom: 10px; }
+.level-reconciliation h3 { font-size: 15px; line-height: 1.5; margin: 0 0 8px; }
+.level-reconciliation p, .level-reconciliation-total > span { color: var(--muted); font-size: 11px; line-height: 1.7; }
+.level-reconciliation-total > span { display: block; margin-bottom: 8px; }
+.level-reconciliation-total > strong { display: block; font-size: 25px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.level-reconciliation .table-scroll { border: 1px solid var(--border); border-radius: 9px; }
+.balance-table { min-width: 790px; }
+.balance-table tbody th { font-weight: 500; max-width: 260px; white-space: normal; }
+.level-reconciliation-counts { margin: 16px 0; }
+.level-reconciliation-method { margin-top: 12px; }
+@media (max-width: 740px) {
+  .query-provenance { padding: 15px; }
+  .query-provenance dl, .level-reconciliation-heading { grid-template-columns: minmax(0, 1fr); }
+  .query-provenance dd { font-size: 12px; }
+  .level-reconciliation { padding: 18px; }
+  .level-reconciliation-heading { gap: 16px; }
+}
+
+.contract-registration { max-width: 1180px; margin: 0 auto; }
+.contract-registration .page-heading .eyebrow { display: flex; align-items: center; gap: 8px; }
+.contract-registration .page-heading p { max-width: 740px; line-height: 1.7; }
+.registration-form, .registration-review, .registration-success, .registration-outcome, .registration-state { padding: 28px; }
+.registration-form h2, .registration-review h2, .registration-success h2, .registration-outcome h2, .registration-state h2 { font-size: 22px; letter-spacing: -0.5px; line-height: 1.4; margin: 0 0 12px; }
+.registration-form-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 18px; }
+.registration-form-heading h2 { margin: 0; }
+.registration-fields, .registration-group-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.registration-fields > label, .registration-group-fields > label { display: flex; flex-direction: column; align-items: stretch; gap: 8px; font-size: 12px; color: var(--text); min-width: 0; line-height: 1.5; }
+.registration-wide { grid-column: 1 / -1; }
+.registration-fields input, .registration-fields select, .registration-group-fields input {
+  width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--border); border-radius: 9px;
+  background: var(--surface); color: var(--text); font: inherit; padding: 11px 12px;
+}
+.registration-fields [aria-invalid="true"], .registration-group-fields [aria-invalid="true"] { border-color: var(--danger); }
+.registration-help, .registration-budget-note, .registration-review > p, .registration-success > p, .registration-outcome > p, .registration-state > p { color: var(--muted); font-size: 12px; line-height: 1.7; }
+.registration-form > .registration-help { margin: 15px 0 0; }
+.registration-fields .form-error, .registration-group-fields .form-error { margin: 0; }
+.registration-groups { padding: 0; margin: 28px 0 0; border: 0; min-width: 0; }
+.registration-groups legend { font-size: 16px; font-weight: 600; margin: 0 0 10px; }
+.registration-groups > .registration-help { margin: 0 0 16px; }
+.registration-group { border: 1px solid var(--border); border-radius: 11px; padding: 16px; margin-bottom: 12px; }
+.registration-group.is-included { border-color: var(--accent); }
+.registration-group > .checkbox { min-height: 32px; font-weight: 500; }
+.registration-group-fields { margin-top: 16px; }
+.registration-empty { padding: 24px 16px; border: 1px dashed var(--border); border-radius: 11px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.registration-budget { display: flex; flex-wrap: wrap; gap: 10px 24px; background: var(--canvas); border-radius: 11px; padding: 18px; margin-top: 22px; color: var(--text); font-size: 12px; line-height: 1.6; }
+.registration-budget > p { color: var(--muted); width: 100%; font-size: 11px; }
+.registration-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.registration-actions .button { min-height: 44px; }
+.registration-review-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; padding: 20px 0; margin: 0 0 18px; }
+.registration-review-details > div { min-width: 0; }
+.registration-review-details dd { font-size: 16px; line-height: 1.6; }
+.registration-review .table-scroll { border: 1px solid var(--border); border-radius: 11px; }
+.registration-review table { min-width: 580px; }
+.registration-budget-note { margin-top: 18px; }
+.registration-notice, .registration-error { border-radius: 11px; padding: 14px 16px; margin: 0 0 20px; color: var(--warning); background: var(--warning-soft); font-size: 12px; line-height: 1.7; }
+.registration-error { margin: 20px 0 0; }
+.registration-error .text-button { margin-top: 10px; }
+.registration-success > svg { color: var(--success); margin-bottom: 18px; }
+.registration-outcome > svg, .registration-state > svg { color: var(--accent); margin-bottom: 18px; }
+.registration-outcome > p, .registration-state > p { max-width: 700px; margin-bottom: 14px; }
+.registration-state { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; color: var(--muted); font-size: 13px; }
+.registration-outcome > .button { margin-top: 10px; }
+@media (max-width: 740px) {
+  .registration-form, .registration-review, .registration-success, .registration-outcome, .registration-state { padding: 20px 16px; }
+  .registration-fields, .registration-group-fields, .registration-review-details { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .registration-group { padding: 14px; }
+  .registration-form-heading { align-items: flex-start; }
+  .registration-actions { justify-content: stretch; }
+  .registration-actions .button { flex: 1 0 auto; }
+  .registration-budget { flex-direction: column; gap: 8px; }
+  .registration-fields select { font-size: 12px; }
+}

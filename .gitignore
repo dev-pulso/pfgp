@@ -35,3 +35,5 @@ frontend/dist/
 frontend/test-results/
 frontend/playwright-report/
 *.tsbuildinfo
+integrations/eklipse-nestjs/node_modules/
+integrations/eklipse-nestjs/build/

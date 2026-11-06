@@ -11,7 +11,7 @@ import {
 export class DashboardError extends Error {
   constructor(
     public kind:
-      "empty" | "connection" | "privacy" | "invalid" | "multiple" | "auth" | "stale",
+      "empty" | "connection" | "privacy" | "invalid" | "multiple" | "auth" | "stale" | "scenario",
     message: string,
   ) {
     super(message);
@@ -48,13 +48,28 @@ async function requestJson(path: string, options: RequestInit) {
         ? "El episodio ya no está disponible en este corte. Cierra el detalle y actualiza el informe."
         : "El contrato o período ya no está disponible. Vuelve al listado y actualiza la consulta.",
     );
-  if (response.status === 409)
+  let errorCode: unknown;
+  if (response.status === 409 || response.status === 422) {
+    try {
+      const payload = await response.clone().json();
+      errorCode = payload?.detail?.code;
+    } catch { /* Never display provider error bodies. */ }
+  }
+  if (response.status === 422 && errorCode === "SCENARIO_NOT_CALCULABLE")
     throw new DashboardError(
-      path.startsWith("episodio/") ? "stale" : "multiple",
-      path.startsWith("episodio/")
-        ? "El corte cambió o no permite identificar el episodio. Cierra el detalle y pulsa Actualizar corte."
+      "scenario",
+      "El escenario no es calculable: faltan importes válidos o el traslado supera la facturación del agrupador. Revisa la conciliación del corte.",
+    );
+  if (response.status === 409) {
+    const stale = errorCode === "STALE_REPORT" ||
+      (errorCode !== "DUPLICATE_CONTRACTS" && path.startsWith("episodio/"));
+    throw new DashboardError(
+      stale ? "stale" : "multiple",
+      stale
+        ? "El corte cambió. Pulsa Actualizar corte antes de abrir el detalle o simular."
         : "El origen devolvió identificadores de contrato repetidos. Revisa la integridad del catálogo.",
     );
+  }
   if (response.status === 503)
     throw new DashboardError(
       "auth",
@@ -137,7 +152,12 @@ export async function fetchSimulation(
       body: JSON.stringify(request),
     }),
   );
-  if (!parsed.success) {
+  if (!parsed.success ||
+      parsed.data.idContrato !== request.idContrato ||
+      parsed.data.inicio !== request.inicio ||
+      parsed.data.final !== request.final ||
+      parsed.data.centroId !== request.centroId ||
+      parsed.data.revision !== request.revision) {
     throw new DashboardError(
       "invalid",
       "La respuesta del simulador no tiene el formato esperado. Revisa el backend.",

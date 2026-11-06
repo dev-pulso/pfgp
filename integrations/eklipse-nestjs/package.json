@@ -1,0 +1,20 @@
+{
+  "name": "pfgp-nestjs-integration-checks",
+  "private": true,
+  "description": "Isolated checks against versions from the Eklipse source lockfile; not a standalone server",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "tsc && node --require ./tests/register-alias.cjs --test build/tests/contracts.test.js",
+    "test:reference": "tsc && node ./tests/reference-readers.cjs"
+  },
+  "devDependencies": {
+    "@nestjs/common": "10.3.4",
+    "@types/node": "20.3.1",
+    "class-transformer": "0.5.1",
+    "class-validator": "0.14.1",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.1",
+    "typeorm": "0.3.20",
+    "typescript": "5.4.2"
+  }
+}
